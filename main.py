@@ -13,7 +13,7 @@ import subprocess
 
 import core as helper
 from utils import progress_bar
-from vars import API_ID, API_HASH, BOT_TOKEN, FORCE_SUB_CHANNEL, FORCE_SUB_CHANNEL_LINK, ADMINS, OWNER_ID
+from vars import API_ID, API_HASH, BOT_TOKEN, ADMINS, OWNER_ID
 from aiohttp import ClientSession
 from pyromod import listen
 from subprocess import getstatusoutput
@@ -34,44 +34,6 @@ bot = Client(
 
 # Welcome image file path
 WELCOME_IMAGE_PATH = "welcome.jpg"
-
-# Force Subscribe Check Function
-async def is_subscribed(bot, user_id):
-    if not FORCE_SUB_CHANNEL:
-        return True
-    
-    try:
-        member = await bot.get_chat_member(chat_id=FORCE_SUB_CHANNEL, user_id=user_id)
-        if member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER]:
-            return True
-        else:
-            return False
-    except UserNotParticipant:
-        return False
-    except Exception as e:
-        print(f"Error checking subscription: {e}")
-        return False
-
-# Force Subscribe Decorator
-def force_subscribe(func):
-    async def wrapper(bot, message):
-        if FORCE_SUB_CHANNEL:
-            is_sub = await is_subscribed(bot, message.from_user.id)
-            if not is_sub:
-                keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔔 Join Channel", url="https://t.me/+nG629c-3j_kxZTI1")],
-                    [InlineKeyboardButton("🔄 Refresh", callback_data="refresh_sub")]
-                ])
-                await message.reply_text(
-                    f"<b>🔒 Access Denied!</b>\n\n"
-                    f"You must join our channel to use this bot.\n\n"
-                    f"👇 Click the button below to join:",
-                    reply_markup=keyboard,
-                    parse_mode=ParseMode.HTML
-                )
-                return
-        await func(bot, message)
-    return wrapper
 
 # Enhanced URL validation function
 def is_valid_url(url):
@@ -111,7 +73,6 @@ def extract_url_from_line(line):
     return None, None
 
 @bot.on_message(filters.command(["start"]))
-@force_subscribe
 async def start(bot: Client, m: Message):
     welcome_text = f"<b>👋 Hello {m.from_user.mention}!</b>\n\n<blockquote>📁 I am a bot for downloading files from your <b>.TXT</b> file and uploading them to Telegram.\n\n🚀 To get started, send /upload command and follow the steps.</blockquote>"
     
@@ -144,22 +105,7 @@ async def start(bot: Client, m: Message):
 @bot.on_callback_query()
 async def callback_handler(bot: Client, query: CallbackQuery):
     data = query.data
-    
-    if data == "refresh_sub":
-        if FORCE_SUB_CHANNEL:
-            is_sub = await is_subscribed(bot, query.from_user.id)
-            if is_sub:
-                await query.message.delete()
-                await bot.send_message(
-                    query.from_user.id, 
-                    "✅ **Subscription Verified!**\n\nYou can now use the bot. Send /start to begin."
-                )
-            else:
-                await query.answer("❌ You haven't joined the channel yet!", show_alert=True)
-        else:
-            await query.answer("✅ No subscription required!")
-    
-    elif data == "upload_files":
+    if data == "upload_files":
         await query.answer("Send /upload command to start!", show_alert=True)
 
 @bot.on_message(filters.command("stop"))
@@ -168,7 +114,6 @@ async def restart_handler(_, m):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 @bot.on_message(filters.command(["upload"]))
-@force_subscribe
 async def upload(bot: Client, m: Message):
     editable = await m.reply_text('📤 Send your TXT file with links ⚡️')
     input: Message = await bot.listen(editable.chat.id)
